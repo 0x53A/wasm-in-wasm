@@ -1,0 +1,19 @@
+[package]
+name = "demo-component"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wit-bindgen = "0.43.0"
+
+[package.metadata.component]
+package = "example:calculator"
+
+[profile.release]
+opt-level = "s"
+strip = "debuginfo"
+lto = "fat"
+codegen-units = 1

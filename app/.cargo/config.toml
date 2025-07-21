@@ -1,0 +1,17 @@
+
+# Configuration specific to the wasm32-unknown-unknown target
+[target.wasm32-unknown-unknown]
+rustflags = [
+    # required for DecompressionStream
+    # https://docs.rs/web-sys/latest/web_sys/struct.DecompressionStream.html
+    "--cfg=web_sys_unstable_apis",
+
+    # size
+    "-Zlocation-detail=none",
+    "-Zfmt-debug=none",
+
+    # may be required to target older wasm engines
+    # "-Ctarget-cpu=mvp",
+
+    "-Cpanic=abort",
+]
