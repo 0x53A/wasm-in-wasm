@@ -687,18 +687,18 @@ impl<'a> CodeGenerator<'a> {
                     let namespace = #namespace;
                     let pkg_name = #pkg_name;
                     let interface_name = #interface_name;
-                    
+
                     let pkg_id = wasm_component_layer::PackageIdentifier::new(
                         wasm_component_layer::PackageName::new(namespace, pkg_name),
                         #version,
                     );
-                    
+
                     let interface_id = wasm_component_layer::InterfaceIdentifier::new(pkg_id, interface_name);
-                    
+
                     let interface_instance = linker.define_instance(interface_id)?;
-                    
+
                     let #field_name = std::sync::Arc::new(std::sync::Mutex::new(imports.#field_name));
-                    
+
                     #(#function_definitions)*
                 });
             }

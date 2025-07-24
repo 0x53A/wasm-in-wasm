@@ -270,7 +270,7 @@ impl WasmInWasmApp {
                 self.output.push("Wasm blob is a Component".to_string());
                 let world = &resolve.worlds[world_id];
                 if let Some(pkg_id) = world.package {
-                    let pkg = &resolve.packages[pkg_id];
+                    let _pkg = &resolve.packages[pkg_id];
 
                     self.output.push("world is a package".to_string());
                     printer.print(&resolve, pkg_id, &[]).unwrap();
@@ -294,16 +294,13 @@ impl WasmInWasmApp {
         let engine = wasm_component_layer::Engine::new(wasmi_engine);
 
         // Create a store for managing WASM data and any custom user-defined state.
-        let mut store = wasm_component_layer::Store::new(&engine, ());
+        let store = wasm_component_layer::Store::new(&engine, ());
 
         // Parse the component bytes and load its imports and exports.
         let component = wasm_component_layer::Component::new(&engine, &blob).unwrap();
 
-        // Create a linker that will be used to resolve the component's imports, if any.
-        let mut linker = Linker::default();
-
         let console_impl = MyConsoleImpl;
-        let mut imports = wit_bindings::calculator::Imports {
+        let imports = wit_bindings::calculator::Imports {
             console: Box::new(console_impl),
         };
 
