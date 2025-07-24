@@ -11,6 +11,7 @@ path = "src/main.rs"
 [dependencies]
 eframe = { version = "0.31", features = [ "glow" ] } # you can see the default features here: https://github.com/emilk/egui/blob/master/crates/eframe/Cargo.toml#L34
 egui = { version = "0.31" }
+egui_extras = "0.31"
 egui-typed-input = { git = "https://github.com/TimTheBig/egui_typed_input", version = "0.1.0" }
 env_logger = "0.11.8"
 log = "0.4.27"
@@ -22,6 +23,12 @@ wasmi_runtime_layer = "0.47.0"
 semver = "1.0.26"
 wit-bindgen = "0.43.0"
 rfd = "0.15.4"
+wit-parser = "0.235.0"
+wit-component = "0.235.0"
+
+wit-derive = { path = "../wit-derive" }
+anyhow = "1.0.98"
+wasmprinter = "0.235.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = "0.3.77"

@@ -7,13 +7,16 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = "0.43.0"
+wit-bindgen = { version = "0.43.0", default-features = false, features = ["macros"] }
+wee_alloc = { version = "0.4", default-features = false }
 
 [package.metadata.component]
 package = "example:calculator"
 
 [profile.release]
-opt-level = "s"
-strip = "debuginfo"
-lto = "fat"
-codegen-units = 1
+opt-level = "z"        # Optimize aggressively for size
+strip = "symbols"      # Strip all symbols
+lto = "fat"            # Link-time optimization
+codegen-units = 1      # Single codegen unit for better optimization
+panic = "abort"        # Remove panic handling code
+debug = false          # No debug info

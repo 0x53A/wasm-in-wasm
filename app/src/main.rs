@@ -28,7 +28,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Wasm In Wasm",
         native_options,
-        Box::new(|cc| Ok(Box::new(app::WasmInWasmApp::default()))),
+        Box::new(|_cc| Ok(Box::new(app::WasmInWasmApp::default()))),
     )
 }
 
@@ -58,7 +58,7 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|cc| Ok(Box::new(app::WasmInWasmApp::default()))),
+                Box::new(|_cc| Ok(Box::new(app::WasmInWasmApp::default()))),
             )
             .await;
 

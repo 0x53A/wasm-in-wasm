@@ -1,0 +1,18 @@
+[package]
+name = "wit-derive-tests"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+semver = "1.0.26"
+wasm_component_layer = "0.1.18"
+wasm_runtime_layer = "0.5"
+wasmi_runtime_layer = "0.47"
+wit-derive = { path = "../wit-derive" }
+
+
+[patch.crates-io]
+# expected `&[u8]`, found `Cursor<&[u8]>`
+# https://github.com/DouglasDwyer/wasm_component_layer/issues/25
+wasm_component_layer = { git = "https://github.com/juntyr/wasm_component_layer", branch = "resource-transfer-new" }

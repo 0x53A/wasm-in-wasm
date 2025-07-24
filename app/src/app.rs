@@ -4,12 +4,30 @@ use std::f32::consts::PI;
 
 use wasm_component_layer::*;
 
-// you need to manually build the
+// you need to manually build the project beforehand using 'cargo component build --release'
 const DEFAULT_WASM_BLOB: &[u8] =
     include_bytes!(r#"../../demo-component/target/wasm32-wasip1/release/demo_component.wasm"#);
 
+const WIT_TEXT: &str = include_str!(r#"../../wit/world.wit"#);
+
+mod wit_bindings {
+    wit_derive::generate!({
+        world: "calculator",
+        path: "../wit",
+    });
+}
+
+pub struct MyConsoleImpl;
+
+impl wit_bindings::calculator::console for MyConsoleImpl {
+    fn print(&mut self, message: String) {
+        println!("[WASM]: {}", message);
+    }
+}
+
 pub struct WasmInWasmApp {
     blob: Option<Box<[u8]>>,
+    text: Option<String>,
 
     exported_interfaces: Vec<String>,
     output: Vec<String>,
@@ -23,6 +41,7 @@ impl Default for WasmInWasmApp {
     fn default() -> Self {
         Self {
             blob: None,
+            text: None,
             exported_interfaces: Vec::new(),
             output: Vec::new(),
             upload: None,
@@ -78,21 +97,9 @@ impl WasmInWasmApp {
                 ui.add_space(5.0); // Space after separator
             };
 
-            ui.label(
-                r"You can load any WASM component which adheres to the following interface:
+            ui.label(r"You can load any WASM component which adheres to the following interface:");
 
-
-package example:calculator@0.1.0;
-
-interface math {
-    add: func(a: s32, b: s32) -> s32;
-    multiply: func(a: s32, b: s32) -> s32;
-}
-
-world calculator {
-    export math;
-}",
-            );
+            render_code(ui, WIT_TEXT);
 
             if ui.button("Load default wasm blob").clicked() {
                 self.blob = Some(DEFAULT_WASM_BLOB.to_vec().into_boxed_slice());
@@ -186,8 +193,20 @@ world calculator {
 
             ui.label("Exported Interfaces:");
             for interface in &self.exported_interfaces {
-                ui.label(interface);
+                render_code(ui, interface);
             }
+
+            ui.collapsing("Decompiled WAT", |ui| {
+                if let Some(text) = &self.text {
+                    ui.label("Decompiled WAT:");
+
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        ui.monospace(text);
+                    });
+                } else {
+                    ui.label("No WAT available");
+                }
+            });
 
             ui.add_space(15.0);
             draw_separator(ui);
@@ -220,6 +239,56 @@ impl WasmInWasmApp {
             }
         };
 
+        // try to decompile
+        let wat = wasmprinter::print_bytes(blob);
+        match wat {
+            Ok(wat) => {
+                self.text = Some(wat);
+            }
+            Err(e) => {
+                self.text = None;
+                self.output
+                    .push(format!("Failed to decompile WASM blob: {}", e));
+                return;
+            }
+        }
+
+        self.output
+            .push(format!("loaded blob of size: {}", blob.len()));
+
+        self.exported_interfaces.clear();
+
+        let Ok(actual_wit) = wit_component::decode(&blob) else {
+            self.output.push("Failed to decode WASM blob".to_string());
+            return;
+        };
+
+        let mut printer = wit_component::WitPrinter::default();
+
+        match actual_wit {
+            wit_component::DecodedWasm::Component(resolve, world_id) => {
+                self.output.push("Wasm blob is a Component".to_string());
+                let world = &resolve.worlds[world_id];
+                if let Some(pkg_id) = world.package {
+                    let pkg = &resolve.packages[pkg_id];
+
+                    self.output.push("world is a package".to_string());
+                    printer.print(&resolve, pkg_id, &[]).unwrap();
+
+                    // for x in pkg.
+                    // printer.print_interface(resolve, id);
+                    self.exported_interfaces.push(printer.output.to_string());
+                } else {
+                    self.output.push("No package defined".to_string());
+                }
+            }
+            wit_component::DecodedWasm::WitPackage(resolve, pkg_id) => {
+                self.output.push("Wasm blob is a Package".to_string());
+                printer.print(&resolve, pkg_id, &[]).unwrap();
+                self.output.push(printer.output.to_string());
+            }
+        }
+
         // Create a new engine for instantiating a component.
         let wasmi_engine = wasmi_runtime_layer::Engine::default();
         let engine = wasm_component_layer::Engine::new(wasmi_engine);
@@ -229,50 +298,30 @@ impl WasmInWasmApp {
 
         // Parse the component bytes and load its imports and exports.
         let component = wasm_component_layer::Component::new(&engine, &blob).unwrap();
+
         // Create a linker that will be used to resolve the component's imports, if any.
-        let linker = Linker::default();
-        // Create an instance of the component using the linker.
-        let instance = linker.instantiate(&mut store, &component).unwrap();
+        let mut linker = Linker::default();
 
-        // print interfaces
-        self.exported_interfaces.clear();
-        for (interface, export) in instance.exports().instances() {
-            self.exported_interfaces.push(format!(
-                "Interface: {} {}",
-                interface.package(),
-                interface.name()
-            ));
-        }
+        let console_impl = MyConsoleImpl;
+        let mut imports = wit_bindings::calculator::Imports {
+            console: Box::new(console_impl),
+        };
 
-        // Get the interface that the interface exports.
-        let interface = instance
-            .exports()
-            .instance(&InterfaceIdentifier::new(
-                PackageIdentifier::new(
-                    PackageName::new("example", "calculator"),
-                    Some(semver::Version {
-                        major: 0,
-                        minor: 1,
-                        patch: 0,
-                        pre: semver::Prerelease::EMPTY,
-                        build: semver::BuildMetadata::EMPTY,
-                    }),
-                ),
-                "math",
-            ))
-            .unwrap();
+        let mut instance =
+            wit_bindings::calculator::instantiate(store, &component, imports).unwrap();
 
-        // Get the function for selecting a list element.
-        let func_ptr = interface
-            .func("add")
-            .unwrap()
-            .typed::<(i32, i32), i32>()
-            .unwrap();
+        let add_result = instance.math.add(7, 8);
+        self.output
+            .push(format!("Result of 7 + 8 = {}", add_result));
 
-        let line = format!(
-            "Calling add(3, 2) == {}",
-            func_ptr.call(&mut store, (3, 2)).unwrap()
-        );
-        self.output.push(line);
+        let multiply_result = instance.math.multiply(7, 5);
+        self.output
+            .push(format!("Result of 7 * 5 = {}", multiply_result));
     }
+}
+
+pub fn render_code(ui: &mut egui::Ui, code: &str) {
+    let language = "wit";
+    let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
+    egui_extras::syntax_highlighting::code_view_ui(ui, &theme, code, language);
 }
