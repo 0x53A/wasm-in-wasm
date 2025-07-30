@@ -1,8 +1,4 @@
-use egui::{self, Color32, Stroke, vec2};
-use egui_typed_input::ValText;
-use std::f32::consts::PI;
-
-use wasm_component_layer::*;
+use egui::{self, Color32};
 
 // you need to manually build the project beforehand using 'cargo component build --release'
 const DEFAULT_WASM_BLOB: &[u8] =
@@ -35,6 +31,15 @@ pub struct WasmInWasmApp {
     upload: Option<std::sync::mpsc::Receiver<Box<[u8]>>>,
 
     frame_count: u64,
+
+    // Interactive math inputs
+    add_input_a: String,
+    add_input_b: String,
+    multiply_input_a: String,
+    multiply_input_b: String,
+    
+    // Flag to indicate if a component is loaded
+    component_loaded: bool,
 }
 
 impl Default for WasmInWasmApp {
@@ -46,6 +51,11 @@ impl Default for WasmInWasmApp {
             output: Vec::new(),
             upload: None,
             frame_count: 0,
+            add_input_a: "7".to_string(),
+            add_input_b: "8".to_string(),
+            multiply_input_a: "7".to_string(),
+            multiply_input_b: "5".to_string(),
+            component_loaded: false,
         }
     }
 }
@@ -211,6 +221,60 @@ impl WasmInWasmApp {
             ui.add_space(15.0);
             draw_separator(ui);
 
+            // Interactive math operations - only show if component is loaded
+            if self.component_loaded {
+                ui.heading("Interactive Math Operations");
+                
+                ui.add_space(10.0);
+                
+                // Addition section
+                ui.horizontal(|ui| {
+                    ui.label("Addition:");
+                    ui.text_edit_singleline(&mut self.add_input_a);
+                    ui.label("+");
+                    ui.text_edit_singleline(&mut self.add_input_b);
+                    ui.label("=");
+                    
+                    if ui.button("Calculate").clicked() {
+                        if let (Ok(a), Ok(b)) = (self.add_input_a.parse::<i32>(), self.add_input_b.parse::<i32>()) {
+                            if let Some(result) = self.execute_add(a, b) {
+                                self.output.push(format!("Addition: {} + {} = {}", a, b, result));
+                            } else {
+                                self.output.push("Failed to execute addition".to_string());
+                            }
+                        } else {
+                            self.output.push("Invalid input for addition - please enter valid integers".to_string());
+                        }
+                    }
+                });
+                
+                ui.add_space(5.0);
+                
+                // Multiplication section
+                ui.horizontal(|ui| {
+                    ui.label("Multiplication:");
+                    ui.text_edit_singleline(&mut self.multiply_input_a);
+                    ui.label("×");
+                    ui.text_edit_singleline(&mut self.multiply_input_b);
+                    ui.label("=");
+                    
+                    if ui.button("Calculate").clicked() {
+                        if let (Ok(a), Ok(b)) = (self.multiply_input_a.parse::<i32>(), self.multiply_input_b.parse::<i32>()) {
+                            if let Some(result) = self.execute_multiply(a, b) {
+                                self.output.push(format!("Multiplication: {} × {} = {}", a, b, result));
+                            } else {
+                                self.output.push("Failed to execute multiplication".to_string());
+                            }
+                        } else {
+                            self.output.push("Invalid input for multiplication - please enter valid integers".to_string());
+                        }
+                    }
+                });
+                
+                ui.add_space(15.0);
+                draw_separator(ui);
+            }
+
             ui.label("Output:");
             for line in &self.output {
                 ui.label(line);
@@ -238,6 +302,10 @@ impl WasmInWasmApp {
                 return;
             }
         };
+
+        // Clear previous instance
+        self.component_loaded = false;
+        self.output.clear();
 
         // try to decompile
         let wat = wasmprinter::print_bytes(blob);
@@ -307,13 +375,63 @@ impl WasmInWasmApp {
         let mut instance =
             wit_bindings::calculator::instantiate(store, &component, imports).unwrap();
 
+        // Demonstrate the functions work with initial values
         let add_result = instance.math.add(7, 8);
         self.output
-            .push(format!("Result of 7 + 8 = {}", add_result));
+            .push(format!("Demo: 7 + 8 = {}", add_result));
 
         let multiply_result = instance.math.multiply(7, 5);
         self.output
-            .push(format!("Result of 7 * 5 = {}", multiply_result));
+            .push(format!("Demo: 7 × 5 = {}", multiply_result));
+
+        // Mark component as loaded for interactive use
+        self.component_loaded = true;
+    }
+
+    fn execute_add(&self, a: i32, b: i32) -> Option<i32> {
+        let blob = self.blob.as_ref()?;
+
+        // Create a new engine for instantiating a component.
+        let wasmi_engine = wasmi_runtime_layer::Engine::default();
+        let engine = wasm_component_layer::Engine::new(wasmi_engine);
+
+        // Create a store for managing WASM data and any custom user-defined state.
+        let store = wasm_component_layer::Store::new(&engine, ());
+
+        // Parse the component bytes and load its imports and exports.
+        let component = wasm_component_layer::Component::new(&engine, blob).ok()?;
+
+        let console_impl = MyConsoleImpl;
+        let imports = wit_bindings::calculator::Imports {
+            console: Box::new(console_impl),
+        };
+
+        let mut instance = wit_bindings::calculator::instantiate(store, &component, imports).ok()?;
+
+        Some(instance.math.add(a, b))
+    }
+
+    fn execute_multiply(&self, a: i32, b: i32) -> Option<i32> {
+        let blob = self.blob.as_ref()?;
+
+        // Create a new engine for instantiating a component.
+        let wasmi_engine = wasmi_runtime_layer::Engine::default();
+        let engine = wasm_component_layer::Engine::new(wasmi_engine);
+
+        // Create a store for managing WASM data and any custom user-defined state.
+        let store = wasm_component_layer::Store::new(&engine, ());
+
+        // Parse the component bytes and load its imports and exports.
+        let component = wasm_component_layer::Component::new(&engine, blob).ok()?;
+
+        let console_impl = MyConsoleImpl;
+        let imports = wit_bindings::calculator::Imports {
+            console: Box::new(console_impl),
+        };
+
+        let mut instance = wit_bindings::calculator::instantiate(store, &component, imports).ok()?;
+
+        Some(instance.math.multiply(a, b))
     }
 }
 

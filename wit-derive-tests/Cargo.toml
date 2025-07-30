@@ -9,7 +9,11 @@ semver = "1.0.26"
 wasm_component_layer = "0.1.18"
 wasm_runtime_layer = "0.5"
 wasmi_runtime_layer = "0.47"
+wasmprinter = "0.236.0"
+wat = "1.236.0"
+wit-component = { version = "0.236.0", features = ["dummy-module", "wat"] }
 wit-derive = { path = "../wit-derive" }
+wit-parser = "0.236.0"
 
 
 [patch.crates-io]

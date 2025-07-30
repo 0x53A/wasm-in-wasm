@@ -9,14 +9,21 @@ pub struct CodeGenerator<'a> {
     resolve: &'a Resolve,
     package: &'a Package,
     world: &'a World,
+    wit_source: WitSourceContent,
+}
+
+pub enum WitSourceContent {
+    Files(Vec<(String, String)>), // Vec<(filename, content)>
+    Inline(String),
 }
 
 impl<'a> CodeGenerator<'a> {
-    pub fn new(resolve: &'a Resolve, package: &'a Package, world: &'a World) -> Self {
+    pub fn new(resolve: &'a Resolve, package: &'a Package, world: &'a World, wit_source: WitSourceContent) -> Self {
         Self {
             resolve,
             package,
             world,
+            wit_source,
         }
     }
 
@@ -72,6 +79,7 @@ impl<'a> CodeGenerator<'a> {
         }
 
         let instantiate_fn = self.generate_instantiate_function(&import_fields, &export_fields)?;
+        let wit_module = self.generate_wit_module()?;
 
         let result = quote! {
             pub mod #mod_name {
@@ -92,6 +100,8 @@ impl<'a> CodeGenerator<'a> {
                 };
                 use wasm_runtime_layer::backend::WasmEngine;
                 use anyhow::Result;
+
+                #wit_module
 
                 #(#import_traits)*
                 #(#export_traits)*
@@ -117,6 +127,36 @@ impl<'a> CodeGenerator<'a> {
         };
 
         Ok(result)
+    }
+
+    fn generate_wit_module(&self) -> Result<TokenStream> {
+        let wit_content = match &self.wit_source {
+            WitSourceContent::Files(files) => {
+                let file_constants = files.iter().map(|(filename, content)| {
+                    let const_name = format_ident!("{}", filename.replace('.', "_").replace('-', "_").to_uppercase());
+                    quote! {
+                        pub const #const_name: &'static str = #content;
+                    }
+                });
+                
+                quote! {
+                    pub mod wit {
+                        pub mod files {
+                            #(#file_constants)*
+                        }
+                    }
+                }
+            }
+            WitSourceContent::Inline(content) => {
+                quote! {
+                    pub mod wit {
+                        pub const INLINE: &'static str = #content;
+                    }
+                }
+            }
+        };
+
+        Ok(wit_content)
     }
 
     fn generate_import_interface(
