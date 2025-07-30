@@ -38,14 +38,14 @@ const WASM_BLOB: &[u8] =
 //             export math;
 //         }
 //     "#)?;
-    
+
 //     let world_id = resolve.select_world(pkg_id, Some("calculator"))?;
-    
+
 //     let dummy = wit_component::dummy_module(&resolve, world_id, ManglingAndAbi::Standard32);
-    
+
 //     // Print the WAT to see the expected structure
 //     println!("{}", wasmprinter::print_bytes(&dummy)?);
-    
+
 //     Ok(dummy)
 // }
 

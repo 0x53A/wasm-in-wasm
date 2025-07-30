@@ -37,7 +37,7 @@ pub struct WasmInWasmApp {
     add_input_b: String,
     multiply_input_a: String,
     multiply_input_b: String,
-    
+
     // Flag to indicate if a component is loaded
     component_loaded: bool,
 }
@@ -224,9 +224,9 @@ impl WasmInWasmApp {
             // Interactive math operations - only show if component is loaded
             if self.component_loaded {
                 ui.heading("Interactive Math Operations");
-                
+
                 ui.add_space(10.0);
-                
+
                 // Addition section
                 ui.horizontal(|ui| {
                     ui.label("Addition:");
@@ -234,22 +234,29 @@ impl WasmInWasmApp {
                     ui.label("+");
                     ui.text_edit_singleline(&mut self.add_input_b);
                     ui.label("=");
-                    
+
                     if ui.button("Calculate").clicked() {
-                        if let (Ok(a), Ok(b)) = (self.add_input_a.parse::<i32>(), self.add_input_b.parse::<i32>()) {
+                        if let (Ok(a), Ok(b)) = (
+                            self.add_input_a.parse::<i32>(),
+                            self.add_input_b.parse::<i32>(),
+                        ) {
                             if let Some(result) = self.execute_add(a, b) {
-                                self.output.push(format!("Addition: {} + {} = {}", a, b, result));
+                                self.output
+                                    .push(format!("Addition: {} + {} = {}", a, b, result));
                             } else {
                                 self.output.push("Failed to execute addition".to_string());
                             }
                         } else {
-                            self.output.push("Invalid input for addition - please enter valid integers".to_string());
+                            self.output.push(
+                                "Invalid input for addition - please enter valid integers"
+                                    .to_string(),
+                            );
                         }
                     }
                 });
-                
+
                 ui.add_space(5.0);
-                
+
                 // Multiplication section
                 ui.horizontal(|ui| {
                     ui.label("Multiplication:");
@@ -257,20 +264,28 @@ impl WasmInWasmApp {
                     ui.label("×");
                     ui.text_edit_singleline(&mut self.multiply_input_b);
                     ui.label("=");
-                    
+
                     if ui.button("Calculate").clicked() {
-                        if let (Ok(a), Ok(b)) = (self.multiply_input_a.parse::<i32>(), self.multiply_input_b.parse::<i32>()) {
+                        if let (Ok(a), Ok(b)) = (
+                            self.multiply_input_a.parse::<i32>(),
+                            self.multiply_input_b.parse::<i32>(),
+                        ) {
                             if let Some(result) = self.execute_multiply(a, b) {
-                                self.output.push(format!("Multiplication: {} × {} = {}", a, b, result));
+                                self.output
+                                    .push(format!("Multiplication: {} × {} = {}", a, b, result));
                             } else {
-                                self.output.push("Failed to execute multiplication".to_string());
+                                self.output
+                                    .push("Failed to execute multiplication".to_string());
                             }
                         } else {
-                            self.output.push("Invalid input for multiplication - please enter valid integers".to_string());
+                            self.output.push(
+                                "Invalid input for multiplication - please enter valid integers"
+                                    .to_string(),
+                            );
                         }
                     }
                 });
-                
+
                 ui.add_space(15.0);
                 draw_separator(ui);
             }
@@ -377,8 +392,7 @@ impl WasmInWasmApp {
 
         // Demonstrate the functions work with initial values
         let add_result = instance.math.add(7, 8);
-        self.output
-            .push(format!("Demo: 7 + 8 = {}", add_result));
+        self.output.push(format!("Demo: 7 + 8 = {}", add_result));
 
         let multiply_result = instance.math.multiply(7, 5);
         self.output
@@ -406,7 +420,8 @@ impl WasmInWasmApp {
             console: Box::new(console_impl),
         };
 
-        let mut instance = wit_bindings::calculator::instantiate(store, &component, imports).ok()?;
+        let mut instance =
+            wit_bindings::calculator::instantiate(store, &component, imports).ok()?;
 
         Some(instance.math.add(a, b))
     }
@@ -429,7 +444,8 @@ impl WasmInWasmApp {
             console: Box::new(console_impl),
         };
 
-        let mut instance = wit_bindings::calculator::instantiate(store, &component, imports).ok()?;
+        let mut instance =
+            wit_bindings::calculator::instantiate(store, &component, imports).ok()?;
 
         Some(instance.math.multiply(a, b))
     }

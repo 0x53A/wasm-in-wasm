@@ -18,7 +18,12 @@ pub enum WitSourceContent {
 }
 
 impl<'a> CodeGenerator<'a> {
-    pub fn new(resolve: &'a Resolve, package: &'a Package, world: &'a World, wit_source: WitSourceContent) -> Self {
+    pub fn new(
+        resolve: &'a Resolve,
+        package: &'a Package,
+        world: &'a World,
+        wit_source: WitSourceContent,
+    ) -> Self {
         Self {
             resolve,
             package,
@@ -133,12 +138,15 @@ impl<'a> CodeGenerator<'a> {
         let wit_content = match &self.wit_source {
             WitSourceContent::Files(files) => {
                 let file_constants = files.iter().map(|(filename, content)| {
-                    let const_name = format_ident!("{}", filename.replace('.', "_").replace('-', "_").to_uppercase());
+                    let const_name = format_ident!(
+                        "{}",
+                        filename.replace('.', "_").replace('-', "_").to_uppercase()
+                    );
                     quote! {
                         pub const #const_name: &'static str = #content;
                     }
                 });
-                
+
                 quote! {
                     pub mod wit {
                         pub mod files {

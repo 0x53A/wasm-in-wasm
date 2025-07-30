@@ -31,8 +31,8 @@ pub fn create_inline_wat_component() -> Result<Vec<u8>> {
     // First, parse the WIT to get the resolve and world
     let mut resolve = wit_parser::Resolve::default();
     let wit_content = calculator::wit::INLINE;
-    let pkg_id = resolve.push_str("calculator.wit",  wit_content)?;
-    
+    let pkg_id = resolve.push_str("calculator.wit", wit_content)?;
+
     let world_id = resolve.select_world(pkg_id, Some("calculator"))?;
 
     // WAT implementation of the math interface
@@ -73,7 +73,7 @@ pub fn create_inline_wat_component() -> Result<Vec<u8>> {
 
     // Compile WAT to WASM bytes (core module)
     let mut core_wasm = wat::parse_str(wat_source)?;
-    
+
     // Embed component metadata - this is the equivalent of `wasm-tools component embed`
     wit_component::embed_component_metadata(
         &mut core_wasm,
@@ -91,8 +91,6 @@ pub fn create_inline_wat_component() -> Result<Vec<u8>> {
     Ok(component_bytes)
 }
 
-
-
 // Host
 // ----------------------------------------------------------
 
@@ -104,13 +102,11 @@ impl crate::calculator::console for MyConsoleImpl {
     }
 }
 
-
 // Test
 // ----------------------------------------------------------
 
 #[test]
 fn test_inline_wit() -> Result<()> {
-
     let wasm_blob = create_inline_wat_component().unwrap();
 
     let wasmi_engine = wasmi_runtime_layer::Engine::default();
