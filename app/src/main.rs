@@ -39,48 +39,112 @@ fn main() -> eframe::Result {
 #[cfg(target_arch = "wasm32")]
 fn main() {
     use eframe::wasm_bindgen::JsCast as _;
+    use eframe::wasm_bindgen::prelude::*;
+    use egui_web_component::EguiMount;
+    use std::cell::{Cell, RefCell};
+    use std::collections::HashMap;
 
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
-    let web_options = eframe::WebOptions::default();
+    thread_local! {
+        static NEXT_ID: Cell<u32> = const { Cell::new(0) };
+        static MOUNTS: RefCell<HashMap<u32, EguiMount>> = RefCell::new(HashMap::new());
+    }
 
-    wasm_bindgen_futures::spawn_local(async {
-        let document = web_sys::window()
-            .expect("No window")
-            .document()
-            .expect("No document");
+    let connect = Closure::wrap(Box::new(move |element: web_sys::HtmlElement| {
+        let id = NEXT_ID.with(|next_id| {
+            let id = next_id.get();
+            next_id.set(id + 1);
+            id
+        });
 
-        let canvas = document
-            .get_element_by_id("the_canvas_id")
-            .expect("Failed to find the_canvas_id")
-            .dyn_into::<web_sys::HtmlCanvasElement>()
-            .expect("the_canvas_id was not a HtmlCanvasElement");
+        element
+            .set_attribute("data-wasm-in-wasm-id", &id.to_string())
+            .expect("Failed to set wasm-in-wasm element id");
 
-        let start_result = eframe::WebRunner::new()
-            .start(
-                canvas,
-                web_options,
+        wasm_bindgen_futures::spawn_local(async move {
+            let start_result = EguiMount::connect(
+                &element,
+                eframe::WebOptions::default(),
                 Box::new(|cc| {
                     app::theme::apply(&cc.egui_ctx);
                     Ok(Box::new(app::WasmInWasmApp::default()))
                 }),
             )
             .await;
+            let document = web_sys::window()
+                .expect("No window")
+                .document()
+                .expect("No document");
 
-        // Remove the loading text and spinner:
-        if let Some(loading_text) = document.get_element_by_id("loading_text") {
             match start_result {
-                Ok(_) => {
-                    loading_text.remove();
+                Ok(mount) => {
+                    MOUNTS.with(|mounts| {
+                        mounts.borrow_mut().insert(id, mount);
+                    });
+                    if let Some(loading_text) = document.get_element_by_id("loading_text") {
+                        loading_text.remove();
+                    }
                 }
                 Err(e) => {
-                    loading_text.set_inner_html(
-                        "<p> The app has crashed. See the developer console for details. </p>",
-                    );
+                    if let Some(loading_text) = document.get_element_by_id("loading_text") {
+                        loading_text.set_inner_html(
+                            "<p> The app has crashed. See the developer console for details. </p>",
+                        );
+                    }
                     panic!("Failed to start eframe: {e:?}");
                 }
             }
+        });
+    }) as Box<dyn FnMut(web_sys::HtmlElement)>);
+
+    let disconnect = Closure::wrap(Box::new(move |element: web_sys::HtmlElement| {
+        if let Some(id) = element
+            .get_attribute("data-wasm-in-wasm-id")
+            .and_then(|id| id.parse::<u32>().ok())
+        {
+            MOUNTS.with(|mounts| {
+                if let Some(mount) = mounts.borrow_mut().remove(&id) {
+                    mount.disconnect();
+                }
+            });
         }
-    });
+    }) as Box<dyn FnMut(web_sys::HtmlElement)>);
+
+    let window = web_sys::window().expect("No window");
+    js_sys::Reflect::set(
+        &window,
+        &JsValue::from_str("__wasm_in_wasm_connect"),
+        connect.as_ref().unchecked_ref(),
+    )
+    .expect("Failed to install connect callback");
+    js_sys::Reflect::set(
+        &window,
+        &JsValue::from_str("__wasm_in_wasm_disconnect"),
+        disconnect.as_ref().unchecked_ref(),
+    )
+    .expect("Failed to install disconnect callback");
+
+    connect.forget();
+    disconnect.forget();
+
+    js_sys::eval(
+        r#"
+        class WasmInWasmApp extends HTMLElement {
+            connectedCallback() {
+                window.__wasm_in_wasm_connect(this);
+            }
+
+            disconnectedCallback() {
+                window.__wasm_in_wasm_disconnect(this);
+            }
+        }
+
+        if (!customElements.get('wasm-in-wasm-app')) {
+            customElements.define('wasm-in-wasm-app', WasmInWasmApp);
+        }
+        "#,
+    )
+    .expect("Failed to register wasm-in-wasm-app custom element");
 }

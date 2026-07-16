@@ -57,8 +57,8 @@
             width: 100%;
         }
 
-        /* Make canvas fill entire document: */
-        canvas {
+        /* Make the web component fill the page. It owns its canvas inside shadow DOM. */
+        wasm-in-wasm-app {
             margin-right: auto;
             margin-left: auto;
             display: block;
@@ -116,9 +116,7 @@
 </head>
 
 <body>
-    <!-- The WASM code will resize the canvas dynamically -->
-    <!-- the id is hardcoded in main.rs . so, make sure both match. -->
-    <canvas id="the_canvas_id"></canvas>
+    <wasm-in-wasm-app></wasm-in-wasm-app>
 
     <!-- the loading spinner will be removed in main.rs -->
     <div class="centered" id="loading_text">
