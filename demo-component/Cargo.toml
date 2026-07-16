@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-wit-bindgen = { version = "0.43.0", default-features = false, features = ["macros"] }
+wit-bindgen = { version = "0.59", default-features = false, features = ["macros"] }
 wee_alloc = { version = "0.4", default-features = false }
 
 [package.metadata.component]

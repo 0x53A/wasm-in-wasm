@@ -4,8 +4,8 @@
 mod app;
 
 impl eframe::App for app::WasmInWasmApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.ui(ctx);
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.ui(ui);
     }
 }
 
@@ -16,8 +16,8 @@ fn main() -> eframe::Result {
 
     let native_options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([400.0, 800.0])
-            .with_min_inner_size([300.0, 220.0])
+            .with_inner_size([520.0, 820.0])
+            .with_min_inner_size([360.0, 300.0])
             .with_icon(
                 // NOTE: Adding an icon is optional
                 eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon-256.png")[..])
@@ -28,7 +28,10 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Wasm In Wasm",
         native_options,
-        Box::new(|_cc| Ok(Box::new(app::WasmInWasmApp::default()))),
+        Box::new(|cc| {
+            app::theme::apply(&cc.egui_ctx);
+            Ok(Box::new(app::WasmInWasmApp::default()))
+        }),
     )
 }
 
@@ -58,7 +61,10 @@ fn main() {
             .start(
                 canvas,
                 web_options,
-                Box::new(|_cc| Ok(Box::new(app::WasmInWasmApp::default()))),
+                Box::new(|cc| {
+                    app::theme::apply(&cc.egui_ctx);
+                    Ok(Box::new(app::WasmInWasmApp::default()))
+                }),
             )
             .await;
 

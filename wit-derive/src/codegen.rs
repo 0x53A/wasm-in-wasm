@@ -57,7 +57,7 @@ impl<'a> CodeGenerator<'a> {
                 WorldItem::Function(_) => {
                     // Handle top-level functions if needed
                 }
-                WorldItem::Type(_) => {
+                WorldItem::Type { .. } => {
                     // Handle top-level types if needed
                 }
             }
@@ -77,7 +77,7 @@ impl<'a> CodeGenerator<'a> {
                 WorldItem::Function(_) => {
                     // Handle top-level functions if needed
                 }
-                WorldItem::Type(_) => {
+                WorldItem::Type { .. } => {
                     // Handle top-level types if needed
                 }
             }
@@ -117,6 +117,7 @@ impl<'a> CodeGenerator<'a> {
 
                 pub struct Exports<T, E>
                 where
+                    T: 'static,
                     E: wasm_runtime_layer::backend::WasmEngine,
                 {
                     #(#export_fields),*,
@@ -238,6 +239,7 @@ impl<'a> CodeGenerator<'a> {
         let impl_def = quote! {
             struct #impl_name<T, E>
             where
+                T: 'static,
                 E: wasm_runtime_layer::backend::WasmEngine,
             {
                 store: std::sync::Arc<std::sync::Mutex<wasm_component_layer::Store<T, E>>>,
@@ -246,6 +248,7 @@ impl<'a> CodeGenerator<'a> {
 
             impl<T, E> #trait_name for #impl_name<T, E>
             where
+                T: 'static,
                 E: wasm_runtime_layer::backend::WasmEngine,
             {
                 #(#impl_methods)*
@@ -277,7 +280,7 @@ impl<'a> CodeGenerator<'a> {
         let param_names: Vec<_> = function
             .params
             .iter()
-            .map(|(name, _)| format_ident!("{}", name))
+            .map(|param| format_ident!("{}", param.name))
             .collect();
 
         let param_tuple = if param_names.len() == 1 {
@@ -296,9 +299,9 @@ impl<'a> CodeGenerator<'a> {
 
     fn generate_function_params(&self, function: &Function) -> Result<Vec<TokenStream>> {
         let mut params = Vec::new();
-        for (name, ty) in &function.params {
-            let param_name = format_ident!("{}", name);
-            let param_type = self.type_to_rust_type(ty)?;
+        for param in &function.params {
+            let param_name = format_ident!("{}", param.name);
+            let param_type = self.type_to_rust_type(&param.ty)?;
             params.push(quote! { #param_name: #param_type });
         }
         Ok(params)
@@ -318,7 +321,7 @@ impl<'a> CodeGenerator<'a> {
         let param_types: Result<Vec<_>> = function
             .params
             .iter()
-            .map(|(_, ty)| self.type_to_rust_type(ty))
+            .map(|param| self.type_to_rust_type(&param.ty))
             .collect();
         let param_types = param_types?;
 
@@ -665,15 +668,19 @@ impl<'a> CodeGenerator<'a> {
                     let param_names: Vec<_> = function
                         .params
                         .iter()
-                        .map(|(name, _)| format_ident!("{}", name))
+                        .map(|param| format_ident!("{}", param.name))
                         .collect();
 
                     // Create a series of statements to extract parameters, not using repetition
                     let mut extract_params_stmts = Vec::new();
-                    for (i, (name, param_type)) in function.params.iter().enumerate() {
+                    for (i, param) in function.params.iter().enumerate() {
                         let i_literal = proc_macro2::Literal::usize_unsuffixed(i);
-                        let extraction_code = self
-                            .generate_param_extraction(param_type, name, func_name, &i_literal)?;
+                        let extraction_code = self.generate_param_extraction(
+                            &param.ty,
+                            &param.name,
+                            func_name,
+                            &i_literal,
+                        )?;
 
                         extract_params_stmts.push(extraction_code);
                     } // Pass the field_name (like "console") to the closure for better context
@@ -682,7 +689,7 @@ impl<'a> CodeGenerator<'a> {
                     let param_types: Result<Vec<_>> = function
                         .params
                         .iter()
-                        .map(|(_, ty)| self.type_to_value_type(ty))
+                        .map(|param| self.type_to_value_type(&param.ty))
                         .collect();
                     let param_types = param_types?;
 

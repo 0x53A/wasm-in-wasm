@@ -33,7 +33,7 @@ pub fn create_inline_wat_component() -> Result<Vec<u8>> {
     let wit_content = calculator::wit::INLINE;
     let pkg_id = resolve.push_str("calculator.wit", wit_content)?;
 
-    let world_id = resolve.select_world(pkg_id, Some("calculator"))?;
+    let world_id = resolve.select_world(&[pkg_id], Some("calculator"))?;
 
     // WAT implementation of the math interface
     let wat_source = r#"

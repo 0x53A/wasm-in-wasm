@@ -83,7 +83,8 @@ fn generate_bindings(input: MacroInput) -> Result<TokenStream> {
         }
         crate::parser::WitSource::Inline(content) => {
             let group = UnresolvedPackageGroup::parse("inline.wit", content)
-                .with_context(|| "Failed to parse inline WIT content")?;
+                .map_err(|(source_map, err)| anyhow::anyhow!("{}", err.render(&source_map)))
+                .context("Failed to parse inline WIT content")?;
 
             let wit_source = WitSourceContent::Inline(content.clone());
             (group, wit_source)
@@ -91,14 +92,14 @@ fn generate_bindings(input: MacroInput) -> Result<TokenStream> {
     };
 
     let mut resolve = Resolve::new();
-    let pkg_id = resolve.push(group.main, &group.source_map)?;
-    for pkg in group.nested {
-        resolve.push(pkg, &group.source_map)?;
-    }
+    let pkg_id = resolve
+        .push_group(group)
+        .map_err(|err| anyhow::anyhow!("{err}"))
+        .context("Failed to resolve WIT package")?;
 
     // Find the world
     let world_id = resolve
-        .select_world(pkg_id, Some(&input.world))
+        .select_world(&[pkg_id], Some(&input.world))
         .with_context(|| format!("World '{}' not found in package", input.world))?;
 
     let world = &resolve.worlds[world_id];
